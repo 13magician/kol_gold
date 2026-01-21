@@ -1,3 +1,5 @@
 *.pyc
 /temp_images
 key.json
+*.session
+*.session
