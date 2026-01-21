@@ -10,3 +10,4 @@ monitor_scout_final.session
 monitor_scout_final.session
 *.session-journal
 *.session
+*.db-wal
