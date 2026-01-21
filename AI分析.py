@@ -148,7 +148,7 @@ class AI决策大脑:
             "model": 当前模型,
             "messages": 消息列表,
             "temperature": 0.0,
-            "max_tokens": 1500
+            "max_tokens": 7000
         }
 
         AI回复文本 = ""
@@ -160,7 +160,7 @@ class AI决策大脑:
                 f"{self.API地址}/chat/completions", 
                 headers=请求头, 
                 json=请求体,
-                timeout=240
+                timeout=300
             )
             耗时 = time.time() - 开始时间
             
