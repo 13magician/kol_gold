@@ -151,6 +151,9 @@ class AI决策大脑:
             "max_tokens": 1500
         }
 
+        AI回复文本 = ""
+        清洗后的文本 = ""
+
         try:
             开始时间 = time.time()
             响应 = requests.post(
@@ -190,8 +193,10 @@ class AI决策大脑:
                 db_util.带时间的日志打印(f"💤 [AI] 判定为闲聊/无效 ({耗时:.2f}s)")
                 return False, None
 
-        except json.JSONDecodeError:
-            db_util.带时间的日志打印(f"❌ [AI] JSON 格式错误: {AI回复文本}...")
+        except json.JSONDecodeError as e:
+            db_util.带时间的日志打印(f"❌ [AI] JSON 解析失败: {e}")
+            db_util.带时间的日志打印(f"🔧 [Debug] 清洗后文本: >>>{清洗后的文本}<<<")
+            db_util.带时间的日志打印(f"📜 [Debug] 原始回复: >>>{AI回复文本}<<<")
             return False, None
         except Exception as e:
             db_util.带时间的日志打印(f"❌ [AI] 请求异常: {e}")
