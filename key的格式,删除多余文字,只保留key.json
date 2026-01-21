@@ -1,0 +1,43 @@
+{
+  "//_comment": "这是一个统一的密钥文件，包含 AI、交易所 和 Telegram 的所有凭证",
+  
+  "api_key": "sk-########################",
+
+  "allowed_sources": [ "telegram"],
+  
+  "api": {
+    "base_url": "https://api-666.cc/v1",
+    "model": "gemini-3-pro-preview",
+    "//_comment_filter": "填入模型名称(如 gemini-2.0-flash-exp)开启过滤；留空或删除此行则不进行过滤(直通模式)",
+    "filter_model": "gemini-3-flash-preview"
+  },
+
+  "//_comment_network": "Python脚本将读取此处的 proxy_url 进行自动解析 (enable_vpn=true 时生效)",
+  "network": {
+    "enable_vpn": true,
+    "proxy_url": "http://127.0.0.1:7897"
+  },
+
+  "telegram": {
+    "api_id": 1111111111111111111111111111111111111,
+    "api_hash": "##################",
+    "session_name": "my_monitor_session"
+  },
+
+  "accounts": {
+    "okx": {
+      "apiKey": "##############################",
+      "secret": "##############################",
+      "password": "#####################################",
+      "enableRateLimit": true,
+      "options": { "defaultType": "swap" }
+    },
+    "bitget": {
+      "apiKey": "###################################",
+      "secret": "#########################################",
+      "password": "###########################################",
+      "enableRateLimit": true,
+      "options": { "defaultType": "swap" }
+    }
+  }
+}
