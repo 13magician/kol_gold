@@ -126,7 +126,7 @@ with 标签1:
         st.dataframe(统计, hide_index=True, width='stretch')
         try:
             图表 = px.bar(统计, x='kol_name', y='总收益', title="KOL 盈利对比")
-            st.plotly_chart(图表, use_container_width=True) # Plotly 图表仍通常使用此参数，若报错也可改为 width
+            st.plotly_chart(图表, width="stretch") # [修正] 替换过时的 use_container_width
         except: pass
     else:
         st.write("暂无数据")

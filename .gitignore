@@ -7,3 +7,6 @@ key.json
 monitor_scout_final.session
 *.session
 *.session
+monitor_scout_final.session
+*.session-journal
+*.session

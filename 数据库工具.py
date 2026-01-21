@@ -315,6 +315,31 @@ def 读取_所有活跃持仓():
         带时间的日志打印(f"❌ [数据库-读取活跃持仓失败] {e}")
         return []
 
+def 查询_KOL挂单(kol_name, symbol=None):
+    """(执行端用) 获取该 KOL 的所有挂单 (command_queue 中 state='挂单')"""
+    try:
+        orders = []
+        with 数据库_线程锁:
+            conn = 获取连接()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            sql = "SELECT mt5_ticket, symbol FROM command_queue WHERE kol_name=? AND status='已执行' AND state='挂单'"
+            params = [kol_name]
+            
+            if symbol and symbol.upper() != "ALL":
+                sql += " AND symbol=?"
+                params.append(symbol)
+                
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            for r in rows: orders.append(dict(r))
+            conn.close()
+        return orders
+    except Exception as e:
+        带时间的日志打印(f"❌ [数据库-查询挂单失败] {e}")
+        return []
+
 def 移除_持仓记录(ticket):
     """(执行端用) 平仓后移除"""
     try:

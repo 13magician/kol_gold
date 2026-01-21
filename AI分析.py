@@ -157,7 +157,7 @@ class AI决策大脑:
                 f"{self.API地址}/chat/completions", 
                 headers=请求头, 
                 json=请求体,
-                timeout=45
+                timeout=240
             )
             耗时 = time.time() - 开始时间
             

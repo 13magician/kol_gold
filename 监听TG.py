@@ -228,7 +228,13 @@ async def 启动侦察兵():
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(启动侦察兵())
-    except KeyboardInterrupt: pass
-    except Exception as e: print(f"❌ 错误: {e}")
+    # [新增] 自动重启机制，防止因 Telethon 解析错误(如 TypeNotFoundError)导致程序退出
+    while True:
+        try:
+            asyncio.run(启动侦察兵())
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"❌ 发生错误: {e}")
+            print("🔄 3秒后自动重启侦察兵...")
+            time.sleep(3)
