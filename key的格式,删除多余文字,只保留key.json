@@ -1,43 +1,37 @@
 {
-  "//_comment": "这是一个统一的密钥文件，包含 AI、交易所 和 Telegram 的所有凭证",
-  
-  "api_key": "sk-########################",
+  "__说明__": "【核心机密文件】包含所有API Key、路径和账户凭证，修改后通常需要重启程序",
 
-  "allowed_sources": [ "telegram"],
-  
-  "api": {
-    "base_url": "https://api-666.cc/v1",
-    "model": "gemini-3-pro-preview",
-    "//_comment_filter": "填入模型名称(如 gemini-2.0-flash-exp)开启过滤；留空或删除此行则不进行过滤(直通模式)",
-    "filter_model": "gemini-3-flash-preview"
+  "AI决策": {
+    "服务商": "gemini", 
+    "API地址": "https://api-666.cc/v1",
+    "API密钥": "sk-VhSBWrbS8ZTXwyd95l51CAF3W9SRtzoaopTS5RyrzeR4uJoQ",
+    "模型配置": {
+      "主模型": "按次gcli/gemini-3-flash-preview",
+      "备用模型": "按次gcli/gemini-3-pro-preview",
+      "过滤模型": "按次gcli/gemini-3-pro-preview"
+    }
   },
 
-  "//_comment_network": "Python脚本将读取此处的 proxy_url 进行自动解析 (enable_vpn=true 时生效)",
-  "network": {
-    "enable_vpn": true,
-    "proxy_url": "http://127.0.0.1:7897"
+  "MT5交易所环境": {
+    "终端路径_EXE": "C:\\Program Files\\STARTRADER Financial MetaTrader 5\\terminal64.exe",
+    "登录账号ID": 111111111111111111,
+    "__注释__": "STARTRADER Exness与TMGM路径不同，换券商时改这里"
   },
 
-  "telegram": {
-    "api_id": 1111111111111111111111111111111111111,
-    "api_hash": "##################",
-    "session_name": "my_monitor_session"
+  "Telegram身份凭证": {
+    "API_ID": 11111111111111111111111111111111,
+    "API_HASH": "#######################################",
+    "Session文件名": "monitor"
   },
 
-  "accounts": {
-    "okx": {
-      "apiKey": "##############################",
-      "secret": "##############################",
-      "password": "#####################################",
-      "enableRateLimit": true,
-      "options": { "defaultType": "swap" }
+  "网络与基础设施": {
+    "代理设置": {
+      "启用VPN代理": true,
+      "代理地址": "http://127.0.0.1:7890"
     },
-    "bitget": {
-      "apiKey": "###################################",
-      "secret": "#########################################",
-      "password": "###########################################",
-      "enableRateLimit": true,
-      "options": { "defaultType": "swap" }
+    "内部通讯": {
+      "决策端_Webhook接收地址": "http://127.0.0.1:5010/webhook",
+      "监听端口": 5010
     }
   }
 }
