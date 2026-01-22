@@ -80,6 +80,12 @@ class 执行指挥官:
                     db.标记_命令已执行(命令ID, 0)
                     continue
 
+                # === [新增] 止盈/保本逻辑 ===
+                if 方向 == "止盈":
+                    self.执行_止盈后续操作(KOL, 品种)
+                    db.标记_命令已执行(命令ID, 0)
+                    continue
+
                 # ===========================
                 # [新增] 价格与止损预检查 (防止 10015 Invalid Price)
                 # ===========================
@@ -297,33 +303,90 @@ class 执行指挥官:
                 # === 🔥 核心：触发同组保本逻辑 🔥 ===
                 # 如果这是一张止盈单 (盈亏 > 0)，且它有兄弟姐妹
                 if 盈亏 > 0:
-                    self.执行_保本操作(SignalID, DB单['entry_price'])
+                    self.执行_推保本(KOL, DB单['symbol'])
 
-    def 执行_保本操作(self, signal_id, 开仓价格):
+    def 执行_止盈后续操作(self, kol_name, symbol):
+        """收到止盈信号后的复合操作：撤销挂单 + 推保本"""
+        db.带时间的日志打印(f"🥂 [执行止盈] {kol_name} {symbol} -> 撤销挂单 + 推保本")
+        self.执行_撤销挂单(kol_name, symbol)
+        self.执行_推保本(kol_name, symbol)
+
+    def 执行_撤销挂单(self, kol_name, symbol):
+        """撤销指定KOL指定品种的所有挂单"""
+        try:
+            挂单列表 = db.查询_KOL挂单(kol_name, symbol)
+            if not 挂单列表: return
+            
+            db.带时间的日志打印(f"🧹 [止盈撤单] 正在清理 {len(挂单列表)} 个挂单...")
+            for order in 挂单列表:
+                ticket = int(order['mt5_ticket'])
+                res, msg = self.MT5.撤销挂单(ticket)
+                if res: 
+                    db.带时间的日志打印(f"   ✅ 撤单成功 Ticket:{ticket}")
+                else:
+                    db.带时间的日志打印(f"   ⚠️ 撤单失败 Ticket:{ticket} | {msg}")
+        except Exception as e:
+            db.带时间的日志打印(f"❌ [止盈撤单] 异常: {e}")
+
+    def 执行_推保本(self, kol_name, symbol):
         """
-        当 TP1 止盈后，把同组剩下的单子 SL 移到 开仓价
+        将该 KOL 该品种的所有持仓推保本
+        逻辑：
+        1. 盈利中 -> SL = 开仓价
+        2. 亏损中 -> SL = 现价 +/- 0.02% (微损离场)
         """
-        # 1. 找同组的兄弟
-        所有活跃 = db.读取_所有活跃持仓()
-        兄弟单子 = [p for p in 所有活跃 if p['signal_id'] == signal_id]
-        
-        if not 兄弟单子:
-            return # 没兄弟了，全平完了
+        try:
+            所有活跃 = db.读取_所有活跃持仓()
+            目标单子 = [p for p in 所有活跃 if p['kol_name'] == kol_name and p['symbol'] == symbol]
+            
+            if not 目标单子: return
 
-        打印器.执行_保本触发(signal_id, len(兄弟单子))
-        db.带时间的日志打印(f"🛡️ [触发保本] Signal_{signal_id} 已有止盈，正在保护剩余 {len(兄弟单子)} 张单子...")
+            # 获取所有MT5持仓以获得准确的开仓价
+            mt5_positions = {p.ticket: p for p in self.MT5.获取所有持仓()}
+            db.带时间的日志打印(f"🛡️ [保本逻辑] 正在检查 {kol_name} {symbol} 的 {len(目标单子)} 张持仓...")
 
-        for 单 in 兄弟单子:
-            Ticket = 单['ticket']
-            # 调用 MT5 修改止损
-            # 注意：MT5 要求 SL 和现价有一定距离。如果现价就在开仓价附近，可能会修改失败。
-            # 这里简单处理，直接设为开仓价。
+            for 单 in 目标单子:
+                Ticket = int(单['ticket'])
+                Direction = 单['direction']
+                
+                # 优先使用MT5真实开仓价，否则使用数据库记录
+                if Ticket in mt5_positions:
+                    EntryPrice = mt5_positions[Ticket].price_open
+                else:
+                    EntryPrice = float(单['entry_price'])
+                
+                # 获取现价
+                bid, ask = self.MT5.获取实时报价(symbol)
+                if not bid: continue
+                
+                新止损 = EntryPrice
+                is_losing = False
+                
+                # 判断是否亏损
+                if "买" in Direction: # 做多
+                    if bid < EntryPrice: is_losing = True
+                elif "卖" in Direction: # 做空
+                    if ask > EntryPrice: is_losing = True
+                
+                if is_losing:
+                    # 亏损中，设为现价微损 (0.02%)
+                    if "买" in Direction:
+                        新止损 = bid * (1 - 0.0002)
+                    else:
+                        新止损 = ask * (1 + 0.0002)
+                    新止损 = round(新止损, 5) # 简单规整小数位
+                    db.带时间的日志打印(f"   ⚠️ Ticket:{Ticket} 浮亏中(Open:{EntryPrice}), SL设为现价微损: {新止损}")
+                else:
+                    # 盈利中，设为开仓价
+                    db.带时间的日志打印(f"   ✅ Ticket:{Ticket} 浮盈中, SL设为开仓价: {EntryPrice}")
+                    新止损 = EntryPrice
 
-            # 为了防止反复修改，可以查一下当前 SL 是多少
-            # 这里偷懒直接发请求，MT5 如果数值一样会忽略
-            result = self.MT5.修改订单(Ticket, 新止损=开仓价格)
-            if result:
-                打印器.执行_保本成功(Ticket, 开仓价格)
+                # 执行修改
+                self.MT5.修改订单(Ticket, 新止损=新止损)
+                
+        except Exception as e:
+            db.带时间的日志打印(f"❌ [推保本] 异常: {e}")
+            db.带时间的日志打印(traceback.format_exc())
 
     def 执行_清仓操作(self, kol_name, symbol):
         db.带时间的日志打印(f"🚨 [执行端] 执行清仓: {kol_name} -> {symbol}")
