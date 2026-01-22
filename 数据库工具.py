@@ -115,6 +115,18 @@ def 初始化数据库():
                 )
             ''')
 
+            # [新增] 聊天记录表 (Chat History) - 用于上下文记忆
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    kol_name TEXT,
+                    user_content TEXT,     -- KOL发送的内容
+                    ai_response TEXT,      -- AI回复的内容
+                    is_signal INTEGER,     -- 1=是信号, 0=不是
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             # ==========================================
             # [新增] 数据库补丁逻辑 (自动修复旧表结构)
             # ==========================================
@@ -630,6 +642,54 @@ def 更新挂单数据(mt5_ticket, price, sl, tp):
         带时间的日志打印(f"❌ [数据库-更新挂单数据失败] {e}")
         return False
 
+def 写入_聊天记录(kol_name, user_content, ai_response, is_signal):
+    """记录KOL消息和AI的回复"""
+    try:
+        with 数据库_线程锁:
+            conn = 获取连接()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO chat_history (kol_name, user_content, ai_response, is_signal)
+                VALUES (?, ?, ?, ?)
+            ''', (kol_name, user_content, ai_response, 1 if is_signal else 0))
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        带时间的日志打印(f"❌ [数据库-写入聊天记录失败] {e}")
+
+def 读取_最近聊天记录(kol_name, limit=2):
+    """获取最近的聊天记录，用于构建AI上下文"""
+    try:
+        history = []
+        with 数据库_线程锁:
+            conn = 获取连接()
+            cursor = conn.cursor()
+            # 倒序取最近的N条
+            cursor.execute('''
+                SELECT user_content, ai_response 
+                FROM chat_history 
+                WHERE kol_name = ? 
+                ORDER BY id DESC 
+                LIMIT ?
+            ''', (kol_name, limit))
+            rows = cursor.fetchall()
+            conn.close()
+        
+        # 数据库取出来是 [最新, 次新...]，需要反转为 [旧, 新...] 给AI
+        for r in reversed(rows):
+            user_text = r[0]
+            ai_text = r[1]
+            if user_text:
+                # [优化] 格式化历史消息，使其与当前消息结构一致，帮助AI识别
+                formatted_text = f"KOL名称: {kol_name}\n历史消息:\n{user_text}"
+                history.append({"role": "user", "content": formatted_text})
+            if ai_text:
+                history.append({"role": "assistant", "content": ai_text})
+            
+        return history
+    except Exception as e:
+        带时间的日志打印(f"❌ [数据库-读取聊天记录失败] {e}")
+        return []
 
 # ===========================
 # 单元测试 (直接运行此文件时执行)

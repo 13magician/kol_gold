@@ -89,7 +89,7 @@ class AI决策大脑:
         """从 txt 文件读取 System Prompt"""
         if not os.path.exists(提示词文件路径):
             db_util.带时间的日志打印(f"⚠️ [AI] 找不到 {提示词文件路径}，将使用内置默认值")
-            self.系统提示词 = "你是一个交易信号解析器，请输出包含 tps 数组的 JSON 格式。"
+            self.系统提示词 = "你是一个交易信号解析器。用户可能会提供之前的聊天记录作为上下文参考，但请只针对【最后一条】消息进行分析和信号提取。如果最后一条消息不是交易信号，请返回 is_signal: false。请输出包含 tps 数组的 JSON 格式。"
             return
 
         try:
@@ -138,17 +138,22 @@ class AI决策大脑:
         except:
             return 原始JSON
 
-    def 分析信号(self, KOL名称, 文本内容, 图片路径列表=[]):
+    def 分析信号(self, KOL名称, 文本内容, 图片路径列表=[], 历史消息=[]):
         if not self.初始化成功: self.加载配置()
 
         db_util.带时间的日志打印(f"🤖 [AI] 正在分析: {KOL名称} 的消息...")
 
-        消息列表 = [
-            {"role": "system", "content": self.系统提示词},
-            {"role": "user", "content": []}
-        ]
+        消息列表 = [{"role": "system", "content": self.系统提示词}]
+        
+        # [新增] 注入历史上下文
+        if 历史消息:
+            消息列表.extend(历史消息)
 
-        用户内容 = 消息列表[1]["content"]
+        # 当前消息
+        当前用户消息 = {"role": "user", "content": []}
+        消息列表.append(当前用户消息)
+
+        用户内容 = 当前用户消息["content"]
         用户内容.append({
             "type": "text", 
             "text": f"KOL名称: {KOL名称}\n原始消息:\n{文本内容}"
@@ -195,7 +200,7 @@ class AI决策大脑:
             
             if 响应.status_code != 200:
                 db_util.带时间的日志打印(f"❌ [AI] API 报错 {响应.status_code}: {响应.text}")
-                return False, None
+                return False, None, ""
 
             结果 = 响应.json()
             AI回复文本 = 结果['choices'][0]['message']['content']
@@ -217,20 +222,20 @@ class AI决策大脑:
                 TP数量 = len(解析数据.get('tps', []))
                 
                 db_util.带时间的日志打印(f"✅ [AI] 返回分析结果 ({耗时:.2f}s)")#: {方向} {品种} | {模式} | {TP数量}个TP")
-                return True, 解析数据
+                return True, 解析数据, AI回复文本
             else:
                 db_util.带时间的日志打印(f"💤 [AI] 判定为闲聊/无效 ({耗时:.2f}s)")
-                return False, None
+                return False, None, AI回复文本
 
         except json.JSONDecodeError as e:
             db_util.带时间的日志打印(f"❌ [AI] JSON 解析失败: {e}")
             db_util.带时间的日志打印(f"🔧 [Debug] 清洗后文本: >>>{清洗后的文本}<<<")
             db_util.带时间的日志打印(f"📜 [Debug] 原始回复: >>>{AI回复文本}<<<")
-            return False, None
+            return False, None, AI回复文本
         except Exception as e:
             db_util.带时间的日志打印(f"❌ [AI] 请求异常: {e}")
             db_util.带时间的日志打印(traceback.format_exc())
-            return False, None
+            return False, None, AI回复文本
 
 # ===========================
 # 单元测试
@@ -246,7 +251,7 @@ if __name__ == "__main__":
     TP2: 2020
     TP3: 2050
     """
-    成功, 结果 = 大脑.分析信号("测试员", 测试文本)
+    成功, 结果, 原始 = 大脑.分析信号("测试员", 测试文本)
     
     if 成功:
         print(json.dumps(结果, indent=4, ensure_ascii=False))
