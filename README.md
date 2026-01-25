@@ -65,20 +65,6 @@
 
 ---
 
-## 📋 数据库结构 (Database Schema)
-
-SQLite 数据库 `影子订单簿.db` 包含 5 张核心表：
-
-| 表名 | 用途 | 关键字段 |
-|------|------|--------|
-| **shadow_signals** | 父信号表，记录原始 KOL 信号 | `signal_id`, `kol_name`, `symbol`, `entry_price`, `stop_loss` |
-| **command_queue** | 子命令队列，存储待执行的具体下单指令 | `command_id`, `signal_id`, `status`, `order_type` |
-| **active_positions** | 当前持仓表，记录所有活跃的 MT5 订单 | `ticket`, `symbol`, `volume`, `open_price`, `stop_loss` |
-| **settlements** | 结算表，归档已平仓的交易记录 | `settlement_id`, `signal_id`, `profit_loss`, `close_price` |
-| **execution_logs** | 执行日志流水账 | `log_id`, `timestamp`, `action`, `details` |
-
-**关键关联**: `signal_id` 字段将父信号、子命令、持仓记录关联起来，用于实现同组保本逻辑。
-
 ---
 
 ## ⚙️ 配置文件详解 (Configuration)
@@ -212,37 +198,6 @@ streamlit run 仪表盘.py
 
 ---
 
-## 🔧 关键算法详解
-
-### 以损定仓计算 (Position Sizing)
-
-```
-允许亏损金额 = 账户余额 × 风险率
-止损距离 = |入场价 - 止损价|
-计算手数 = 允许亏损金额 / (止损距离 × 合约大小)
-最终手数 = min(max(计算手数, 最小手数), 最大手数)
-```
-
-**示例**:
-- 账户余额: $10,000
-- 风险率: 6%
-- 允许亏损: $600
-- 入场价: 2050, 止损: 2040
-- 止损距离: 10
-- 黄金合约大小: 100
-- 计算手数: 600 / (10 × 100) = 0.6 手
-
-### 保本触发逻辑 (Break-Even Logic)
-
-当检测到某个 Ticket 平仓且盈利 > 0 时：
-1. 查询同 `signal_id` 的所有剩余持仓
-2. 调用 MT5 API 将它们的止损修改为开仓价
-3. 记录保本事件到数据库
-
-### 品种映射修正 (Symbol Mapping)
-
-AI 可能识别出 `XAUUSD` 或 `XAUUSDm`，系统会查找 `配置.json` 中的映射表，转换为 MT5 实际使用的 `XAUUSD+`。
-
 ---
 
 ## 🚨 风险与配置警告 (Critical Warnings) - **必读**
@@ -264,14 +219,6 @@ AI 可能识别出 `XAUUSD` 或 `XAUUSDm`，系统会查找 `配置.json` 中的
 - 执行端和决策端都需要连接 MT5（决策端用于查询余额和合约规格）
 - MT5 必须保持运行状态
 - 确保 `key.json` 中的终端路径正确
-
-### 3. 数据库自动修复
-
-`数据库工具.py` 的 `初始化数据库()` 函数包含自动补丁逻辑，会检测并修复旧版本缺失的字段（如 `error_msg`, `signal_id`, `tp_goal`）。
-
-### 4. 失败处理策略
-
-执行端遇到下单失败时，会调用 `标记_命令失败()` 将状态改为 "失败"，**不会重试**，防止无限循环。
 
 ### 5. 建议小资金测试
 
@@ -298,8 +245,8 @@ AI 可能识别出 `XAUUSD` 或 `XAUUSDm`，系统会查找 `配置.json` 中的
 ## 📡 信号源与环境配置 (Signal Source & Setup)
 
 ### 1. 监听目标
-
-请确保你的账号已加入以下用于监听的 Telegram 频道/群组：
+https://t.me/kolqunzu
+请确保你的账号已加入以下用于监听的 Telegram 频道/群组：https://t.me/kolqunzu
 > **[https://t.me/+gVBApT2Lb_0xZDM9](https://t.me/+gVBApT2Lb_0xZDM9)**
 
 ### 2. 获取 Telegram API
@@ -355,35 +302,6 @@ AI 可能识别出 `XAUUSD` 或 `XAUUSDm`，系统会查找 `配置.json` 中的
 
 所有模块使用 `数据库工具.带时间的日志打印()` 输出带时间戳的日志，格式为 `[HH:MM:SS] 消息内容`。
 
-### 测试 AI 决策
-
-```bash
-python AI分析.py
-```
-会运行内置的单元测试，模拟解析一个复杂的挂单信号。
-
-### 测试数据库工具
-
-```bash
-python 数据库工具.py
-```
-会创建测试信号并验证父子关联逻辑。
-
-### 测试 MT5 连接
-
-```bash
-python MT5工具.py
-```
-会测试行情获取、账户查询、合约规格查询功能。
-
-### 查看数据库内容
-
-```bash
-python 查看数据库.py
-```
-会打印数据库中的所有表和记录。
-
----
 
 ## 📁 项目文件结构 (File Structure)
 
