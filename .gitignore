@@ -12,3 +12,4 @@ monitor_scout_final.session
 *.session
 *.db-wal
 *.db
+*.db-shm
